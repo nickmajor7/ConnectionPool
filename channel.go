@@ -115,6 +115,9 @@ func (cp *channelPool) Get() (interface{}, error) {
 	cp.mu.Unlock()
 	conn, err := cp.factory()
 	if err != nil {
+		cp.mu.Lock()
+		cp.numOpen--
+		cp.mu.Unlock()
 		return nil, err
 	}
 	ic := &idleConn{conn: conn, inUse: true, t: time.Now()}
