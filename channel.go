@@ -163,6 +163,17 @@ func (cp *channelPool) Ping(conn interface{}) error {
 	return cp.ping(conn)
 }
 
+// Close 關閉一條連線
+func (cp *channelPool) Close(conn interface{}) error {
+	if conn == nil {
+		return ErrConnIsNil
+	}
+	cp.mu.Lock()
+	cp.numOpen--
+	cp.mu.Unlock()
+	return cp.close(conn)
+}
+
 // Release 释放连接池中所有连接
 func (cp *channelPool) Release() {
 	cp.mu.Lock()

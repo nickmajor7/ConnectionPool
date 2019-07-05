@@ -34,5 +34,7 @@ type Pool interface {
 
 	Ping(interface{}) error
 
+	Close(interface{}) error
+
 	Release()
 }
