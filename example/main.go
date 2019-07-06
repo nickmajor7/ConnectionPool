@@ -55,6 +55,8 @@ func initPool() pool.Pool {
 func client(num int, p pool.Pool) {
 	//从连接池中取得一个连接
 	fmt.Println("num:", num, " Get()")
+
+RETRY:
 	v, err := p.Get()
 	if err != nil {
 		log.Fatal(err)
@@ -63,6 +65,12 @@ func client(num int, p pool.Pool) {
 	//do something
 	cn := v.(net.Conn)
 	fmt.Println("num:", num, " Got the connction:", cn.LocalAddr())
+
+	// 如果連線有問題，可以關閉它，再重新取得一個新連線
+	if _, err = cn.Write(nil); err != nil {
+		p.Close(cn)
+		goto RETRY
+	}
 
 	//将连接放回连接池中
 	fmt.Println("num:", num, " Put()")
