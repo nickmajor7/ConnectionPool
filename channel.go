@@ -19,13 +19,13 @@ type channelPool struct {
 	close   func(interface{}) error
 	ping    func(interface{}) error
 
-	mu           sync.Mutex      //锁，操作DB各成员时用到
+	mu           sync.Mutex      //锁，操作pool时用到
 	freeConn     []*idleConn     //空闲连接
 	waitingQueue []chan idleConn //阻塞请求队列，等连接数达到最大限制时，后续请求将插入此队列等待可用连接
 	numOpen      int             //已建立连接或等待建立连接数
 	closed       bool
 	maxIdle      int //最大空闲连接数
-	maxOpen      int //数据库最大连接数
+	maxOpen      int //最大连接数
 	strategy     policyType
 }
 
@@ -163,7 +163,7 @@ func (cp *channelPool) Ping(conn interface{}) error {
 	return cp.ping(conn)
 }
 
-// Close 關閉一條連線
+// Close 關閉一條連線，並將已開啟連線數減一
 func (cp *channelPool) Close(conn interface{}) error {
 	if conn == nil {
 		return ErrConnIsNil

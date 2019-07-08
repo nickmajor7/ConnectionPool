@@ -14,9 +14,9 @@ var (
 
 // Config 连接池相关配置
 type Config struct {
-	//连接池中初始化的连接数
+	//连接池中初始化的连接数(需>0、<=MaxCap)
 	InitialCap int
-	//连接池中拥有的最大的连接数(默认值0，无限制)
+	//连接池中拥有的最大的连接数(需>=0，若為0表示无限制)
 	MaxCap int
 	//生成连接的方法
 	Factory func() (interface{}, error)
