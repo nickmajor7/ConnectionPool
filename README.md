@@ -34,10 +34,16 @@ if err != nil {
 }
 
 //从连接池中取得一个连接
+RETRY:
 v, err := p.Get()
 
 //do something
-//conn=v.(net.Conn)
+conn=v.(net.Conn)
+// 如果連線有問題，可以關閉它，再重新取得一個新連線
+if _, err = conn.Write(nil); err != nil {
+    p.Close(conn)
+    goto RETRY
+}
 
 //将连接放回连接池中
 p.Put(v)
