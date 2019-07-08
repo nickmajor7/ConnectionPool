@@ -41,16 +41,16 @@ func NewPool(poolConfig *Config) (Pool, error) {
 		return nil, ErrInvalidCapacity
 	}
 	if poolConfig.Factory == nil {
-		return nil, ErrInvalidFactoryFun
+		return nil, ErrInvalidFactoryFunc
 	}
 	if poolConfig.Close == nil {
-		return nil, ErrInvalidCloseFun
+		return nil, ErrInvalidCloseFunc
 	}
 
 	cp := &channelPool{
 		factory:  poolConfig.Factory,
 		close:    poolConfig.Close,
-		ping:     poolConfig.Ping,
+		ping:     nil,
 		freeConn: make([]*idleConn, 0, poolConfig.MaxCap),
 		numOpen:  0,
 		closed:   false,
@@ -125,6 +125,7 @@ func (cp *channelPool) Get() (interface{}, error) {
 }
 
 // Put 将连接放回pool中
+// 如果pool已經關閉，會把連線關閉，回傳ErrPoolClosedAndClose
 func (cp *channelPool) Put(conn interface{}) error {
 	if conn == nil {
 		return ErrConnIsNil
@@ -159,6 +160,9 @@ func (cp *channelPool) Put(conn interface{}) error {
 func (cp *channelPool) Ping(conn interface{}) error {
 	if conn == nil {
 		return ErrConnIsNil
+	}
+	if cp.ping == nil {
+		return ErrInvalidPingFunc
 	}
 	return cp.ping(conn)
 }

@@ -4,8 +4,9 @@ import "errors"
 
 var (
 	ErrInvalidCapacity    = errors.New("invalid capacity settings")
-	ErrInvalidFactoryFun  = errors.New("invalid factory func settings")
-	ErrInvalidCloseFun    = errors.New("invalid close func settings")
+	ErrInvalidFactoryFunc = errors.New("invalid factory func settings")
+	ErrInvalidCloseFunc   = errors.New("invalid close func settings")
+	ErrInvalidPingFunc    = errors.New("invalid ping func settings")
 	ErrOpenNumber         = errors.New("numOpen > maxOpen")
 	ErrConnIsNil          = errors.New("connection is nil. rejecting")
 	ErrPoolClosed         = errors.New("pool is closed")
