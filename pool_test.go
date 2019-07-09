@@ -4,24 +4,11 @@ import (
 	"fmt"
 	"log"
 	"net"
+	"os"
 	"runtime"
 	"testing"
 	"time"
 )
-
-type DemoCloser struct {
-	Name     string
-	activeAt time.Time
-}
-
-func (p *DemoCloser) Close() error {
-	fmt.Println(p.Name, "closed")
-	return nil
-}
-
-func (p *DemoCloser) GetActiveTime() time.Time {
-	return p.activeAt
-}
 
 const addr string = "127.0.0.1:65432"
 
@@ -189,4 +176,5 @@ func TestMain(m *testing.M) {
 	<-serverStart
 	m.Run()
 	fmt.Println("end")
+	os.Exit(0)
 }
