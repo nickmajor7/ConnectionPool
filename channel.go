@@ -168,10 +168,16 @@ func (cp *channelPool) Ping(conn interface{}) error {
 }
 
 // Close 關閉一條連線，並將已開啟連線數減一
+// 如果pool已經關閉，會把連線關閉，回傳ErrPoolClosedAndClose
 func (cp *channelPool) Close(conn interface{}) error {
 	if conn == nil {
 		return ErrConnIsNil
 	}
+	if cp.closed {
+		cp.close(conn)
+		return ErrPoolClosedAndClose
+	}
+
 	cp.mu.Lock()
 	cp.numOpen--
 	cp.mu.Unlock()
