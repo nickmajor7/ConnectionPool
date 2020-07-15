@@ -14,6 +14,11 @@ import (
 
 const addr string = "127.0.0.1:8910"
 
+var poolInitNum int = 1
+var poolNum int = 2
+var workerNum int = 10
+var workerTryGetNum int = 5
+
 func main() {
 	c := make(chan os.Signal)
 	signal.Notify(c, os.Interrupt, os.Kill, syscall.SIGUSR1, syscall.SIGUSR2)
@@ -21,9 +26,16 @@ func main() {
 	//等待tcp server启动
 	time.Sleep(2 * time.Second)
 	fmt.Println("使用: ctrl+c 退出服务")
+	fmt.Println("pool初始值:", poolInitNum)
+	fmt.Println("pool上限值:", poolNum)
+	fmt.Println("worker數量:", workerNum)
+	fmt.Println("workerTryGetNum:", workerTryGetNum)
 	p := initPool()
-	for i := 0; i < 10; i++ {
-		go client(i, p)
+	for i := 0; i < workerNum; i++ {
+		go client(i, p, false)
+	}
+	for i := 0; i < workerTryGetNum; i++ {
+		go client(workerNum+i, p, true)
 	}
 	<-c
 	fmt.Println("關閉連接池…")
@@ -40,8 +52,8 @@ func initPool() pool.Pool {
 
 	//创建一个连接池
 	poolConfig := &pool.Config{
-		InitialCap: 1,
-		MaxCap:     2,
+		InitialCap: poolInitNum,
+		MaxCap:     poolNum,
 		Factory:    factory,
 		Close:      close,
 	}
@@ -52,14 +64,27 @@ func initPool() pool.Pool {
 	return p
 }
 
-func client(num int, p pool.Pool) {
+func client(num int, p pool.Pool, try bool) {
 	//从连接池中取得一个连接
-	fmt.Println("num:", num, " Get()")
-
+	var v interface{}
+	var err error
 RETRY:
-	v, err := p.Get()
-	if err != nil {
-		log.Fatal(err)
+	if try {
+		fmt.Println("num:", num, " GetTry()")
+		v, err = p.GetTry()
+		if err != nil {
+			log.Fatal(err)
+		}
+		if v == nil {
+			fmt.Println("num:", num, " GetTry: got the nil")
+			return
+		}
+	} else {
+		fmt.Println("num:", num, " Get()")
+		v, err = p.Get()
+		if err != nil {
+			log.Fatal(err)
+		}
 	}
 
 	//do something
@@ -79,7 +104,7 @@ RETRY:
 		log.Fatal(err)
 	}
 
-	fmt.Println("End")
+	fmt.Println("num:", num, " End")
 }
 
 func server() {
@@ -94,6 +119,6 @@ func server() {
 		if err != nil {
 			fmt.Println("Error accepting: ", err)
 		}
-		fmt.Printf("Received message %s -> %s \n", conn.RemoteAddr(), conn.LocalAddr())
+		fmt.Printf("Accept the connection %s -> %s \n", conn.RemoteAddr(), conn.LocalAddr())
 	}
 }

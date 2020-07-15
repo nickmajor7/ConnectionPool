@@ -78,50 +78,11 @@ func NewPool(poolConfig *Config) (Pool, error) {
 
 // Get 从pool中取一个连接
 func (cp *channelPool) Get() (interface{}, error) {
-	cp.Lock()
-	if cp.closed {
-		cp.Unlock()
-		return nil, ErrPoolClosed
-	}
+	return cp.getWithBlock(true)
+}
 
-	//从freeConn取一个空闲连接
-	numFree := len(cp.freeConn)
-	if cp.strategy == cachedOrNewConn && numFree > 0 {
-		conn := cp.freeConn[0]
-		copy(cp.freeConn, cp.freeConn[1:])
-		cp.freeConn = cp.freeConn[:numFree-1]
-		conn.inUse = true
-		cp.Unlock()
-		return conn.conn, nil
-	}
-
-	//如果没有空闲连接，而且当前建立的连接数已经达到最大限制则将请求加入waitingQueue队列，
-	//并阻塞在这里，直到其它协程将占用的连接释放或connectionOpenner创建
-	if cp.maxOpen > 0 && cp.numOpen >= cp.maxOpen {
-		// Make the connRequest channel. It's buffered so that the
-		// connectionOpener doesn't block while waiting for the req to be read.
-		req := make(chan idleConn, 1)
-		cp.waitingQueue = append(cp.waitingQueue, req)
-		cp.Unlock()
-		ret, ok := <-req //阻塞
-		if !ok {
-			return nil, ErrPoolClosed
-		}
-		ret.inUse = true
-		return ret.conn, nil
-	}
-
-	cp.numOpen++ //上面说了numOpen是已经建立或即将建立连接数，这里还没有建立连接，只是乐观的认为后面会成功，失败的时候再将此值减1
-	cp.Unlock()
-	conn, err := cp.factory()
-	if err != nil {
-		cp.Lock()
-		cp.numOpen--
-		cp.Unlock()
-		return nil, err
-	}
-	ic := &idleConn{conn: conn, inUse: true, t: time.Now()}
-	return ic.conn, nil
+func (cp *channelPool) GetTry() (interface{}, error) {
+	return cp.getWithBlock(false)
 }
 
 // Put 将连接放回pool中
@@ -193,4 +154,55 @@ func (cp *channelPool) Release() {
 	for _, wrapConn := range cp.freeConn {
 		cp.close((*wrapConn).conn)
 	}
+}
+
+func (cp *channelPool) getWithBlock(block bool) (interface{}, error) {
+	cp.Lock()
+	if cp.closed {
+		cp.Unlock()
+		return nil, ErrPoolClosed
+	}
+
+	//从freeConn取一个空闲连接
+	numFree := len(cp.freeConn)
+	if cp.strategy == cachedOrNewConn && numFree > 0 {
+		conn := cp.freeConn[0]
+		copy(cp.freeConn, cp.freeConn[1:])
+		cp.freeConn = cp.freeConn[:numFree-1]
+		conn.inUse = true
+		cp.Unlock()
+		return conn.conn, nil
+	}
+
+	//如果没有空闲连接，而且当前建立的连接数已经达到最大限制则将请求加入waitingQueue队列，
+	//并阻塞在这里，直到其它协程将占用的连接释放或connectionOpenner创建
+	if cp.maxOpen > 0 && cp.numOpen >= cp.maxOpen {
+		if !block {
+			cp.Unlock()
+			return nil, nil
+		}
+		// Make the connRequest channel. It's buffered so that the
+		// connectionOpener doesn't block while waiting for the req to be read.
+		req := make(chan idleConn, 1)
+		cp.waitingQueue = append(cp.waitingQueue, req)
+		cp.Unlock()
+		ret, ok := <-req //阻塞
+		if !ok {
+			return nil, ErrPoolClosed
+		}
+		ret.inUse = true
+		return ret.conn, nil
+	}
+
+	cp.numOpen++ //上面说了numOpen是已经建立或即将建立连接数，这里还没有建立连接，只是乐观的认为后面会成功，失败的时候再将此值减1
+	cp.Unlock()
+	conn, err := cp.factory()
+	if err != nil {
+		cp.Lock()
+		cp.numOpen--
+		cp.Unlock()
+		return nil, err
+	}
+	ic := &idleConn{conn: conn, inUse: true, t: time.Now()}
+	return ic.conn, nil
 }

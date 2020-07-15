@@ -31,6 +31,8 @@ type Config struct {
 type Pool interface {
 	Get() (interface{}, error)
 
+	GetTry() (interface{}, error)
+
 	Put(interface{}) error
 
 	Ping(interface{}) error
