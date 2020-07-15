@@ -19,7 +19,7 @@ type channelPool struct {
 	close   func(interface{}) error
 	ping    func(interface{}) error
 
-	mu           sync.Mutex      //锁，操作pool时用到
+	sync.Mutex                   //锁，操作pool时用到
 	freeConn     []*idleConn     //空闲连接
 	waitingQueue []chan idleConn //阻塞请求队列，等连接数达到最大限制时，后续请求将插入此队列等待可用连接
 	numOpen      int             //已建立连接或等待建立连接数
@@ -78,9 +78,9 @@ func NewPool(poolConfig *Config) (Pool, error) {
 
 // Get 从pool中取一个连接
 func (cp *channelPool) Get() (interface{}, error) {
-	cp.mu.Lock()
+	cp.Lock()
 	if cp.closed {
-		cp.mu.Unlock()
+		cp.Unlock()
 		return nil, ErrPoolClosed
 	}
 
@@ -91,7 +91,7 @@ func (cp *channelPool) Get() (interface{}, error) {
 		copy(cp.freeConn, cp.freeConn[1:])
 		cp.freeConn = cp.freeConn[:numFree-1]
 		conn.inUse = true
-		cp.mu.Unlock()
+		cp.Unlock()
 		return conn.conn, nil
 	}
 
@@ -102,7 +102,7 @@ func (cp *channelPool) Get() (interface{}, error) {
 		// connectionOpener doesn't block while waiting for the req to be read.
 		req := make(chan idleConn, 1)
 		cp.waitingQueue = append(cp.waitingQueue, req)
-		cp.mu.Unlock()
+		cp.Unlock()
 		ret, ok := <-req //阻塞
 		if !ok {
 			return nil, ErrPoolClosed
@@ -112,12 +112,12 @@ func (cp *channelPool) Get() (interface{}, error) {
 	}
 
 	cp.numOpen++ //上面说了numOpen是已经建立或即将建立连接数，这里还没有建立连接，只是乐观的认为后面会成功，失败的时候再将此值减1
-	cp.mu.Unlock()
+	cp.Unlock()
 	conn, err := cp.factory()
 	if err != nil {
-		cp.mu.Lock()
+		cp.Lock()
 		cp.numOpen--
-		cp.mu.Unlock()
+		cp.Unlock()
 		return nil, err
 	}
 	ic := &idleConn{conn: conn, inUse: true, t: time.Now()}
@@ -135,9 +135,9 @@ func (cp *channelPool) Put(conn interface{}) error {
 		return ErrPoolClosedAndClose
 	}
 
-	cp.mu.Lock()
+	cp.Lock()
 	if cp.maxOpen > 0 && cp.numOpen > cp.maxOpen {
-		cp.mu.Unlock()
+		cp.Unlock()
 		return ErrOpenNumber
 	}
 	//有等待连接的请求则将连接发给它们，否则放入freeConn
@@ -152,7 +152,7 @@ func (cp *channelPool) Put(conn interface{}) error {
 	} else {
 		cp.freeConn = append(cp.freeConn, &idleConn{conn: conn, inUse: false, t: time.Now()})
 	}
-	cp.mu.Unlock()
+	cp.Unlock()
 	return nil
 }
 
@@ -178,17 +178,17 @@ func (cp *channelPool) Close(conn interface{}) error {
 		return ErrPoolClosedAndClose
 	}
 
-	cp.mu.Lock()
+	cp.Lock()
 	cp.numOpen--
-	cp.mu.Unlock()
+	cp.Unlock()
 	return cp.close(conn)
 }
 
 // Release 释放连接池中所有连接
 func (cp *channelPool) Release() {
-	cp.mu.Lock()
+	cp.Lock()
 	cp.closed = true
-	cp.mu.Unlock()
+	cp.Unlock()
 
 	for _, wrapConn := range cp.freeConn {
 		cp.close((*wrapConn).conn)
