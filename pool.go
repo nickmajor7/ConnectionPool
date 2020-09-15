@@ -1,6 +1,9 @@
 package pool
 
-import "errors"
+import (
+	"errors"
+	"time"
+)
 
 var (
 	ErrInvalidCapacity    = errors.New("invalid capacity settings")
@@ -25,6 +28,8 @@ type Config struct {
 	Close func(interface{}) error
 	//检查连接是否有效的方法
 	Ping func(interface{}) error
+	//连接最大空闲时间，當Get時會檢查在pool內是否待超過IdleTimeout，若超過會close再建一個新的回傳
+	IdleTimeout time.Duration
 }
 
 // Pool 基本方法

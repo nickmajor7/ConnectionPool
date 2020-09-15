@@ -26,6 +26,7 @@ type channelPool struct {
 	closed       bool            //pool是否關閉
 	maxIdle      int             //最大空闲连接数
 	maxOpen      int             //最大连接数
+	idleTimeout time.Duration 	 //连接最大空闲时间，超过该事件则将失效
 	strategy     policyType
 }
 
@@ -56,6 +57,7 @@ func NewPool(poolConfig *Config) (Pool, error) {
 		closed:   false,
 		maxIdle:  poolConfig.InitialCap,
 		maxOpen:  poolConfig.MaxCap,
+		idleTimeout: poolConfig.IdleTimeout,
 		strategy: cachedOrNewConn,
 	}
 
@@ -169,6 +171,21 @@ func (cp *channelPool) getWithBlock(block bool) (interface{}, error) {
 		conn := cp.freeConn[0]
 		copy(cp.freeConn, cp.freeConn[1:])
 		cp.freeConn = cp.freeConn[:numFree-1]
+		//判断是否超时，超时则丢弃
+		if timeout := cp.idleTimeout; timeout > 0 {
+			if conn.t.Add(timeout).Before(time.Now()) {
+				//丢弃并关闭该连接
+				cp.close(conn.conn)
+				subconn, err := cp.factory()
+				if err != nil {
+					cp.Unlock()
+					return nil, err
+				}
+				ic := &idleConn{conn: subconn, inUse: true, t: time.Now()}
+				cp.Unlock()
+				return ic.conn, nil
+			}
+		}
 		conn.inUse = true
 		cp.Unlock()
 		return conn.conn, nil

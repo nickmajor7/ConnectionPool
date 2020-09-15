@@ -18,6 +18,7 @@ var poolInitNum int = 1
 var poolNum int = 2
 var workerNum int = 10
 var workerTryGetNum int = 5
+var idleTimeout time.Duration = time.Second
 
 func main() {
 	c := make(chan os.Signal)
@@ -30,6 +31,7 @@ func main() {
 	fmt.Println("pool上限值:", poolNum)
 	fmt.Println("worker數量:", workerNum)
 	fmt.Println("workerTryGetNum:", workerTryGetNum)
+	fmt.Println("idleTimeout:", idleTimeout)
 	p := initPool()
 	for i := 0; i < workerNum; i++ {
 		go client(i, p, false)
@@ -56,6 +58,7 @@ func initPool() pool.Pool {
 		MaxCap:     poolNum,
 		Factory:    factory,
 		Close:      close,
+		IdleTimeout: time.Second,
 	}
 	p, err := pool.NewPool(poolConfig)
 	if err != nil {

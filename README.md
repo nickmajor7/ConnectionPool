@@ -28,6 +28,7 @@ poolConfig := &pool.Config{
     MaxCap:     2,
     Factory:    factory,
     Close:      close,
+    IdleTimeout time.Second, 	 
 }
 p, err := pool.NewPool(poolConfig)
 if err != nil {
