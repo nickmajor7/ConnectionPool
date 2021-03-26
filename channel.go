@@ -14,6 +14,12 @@ const (
 )
 
 // channelPool 存放连接信息
+type ConnectionStatus struct {
+	numOpen int //已建立连接或等待建立连接数
+	maxIdle int //最大空闲连接数
+	maxOpen int //最大连接数
+}
+
 type channelPool struct {
 	factory func() (interface{}, error)
 	close   func(interface{}) error
@@ -156,6 +162,17 @@ func (cp *channelPool) Release() {
 	for _, wrapConn := range cp.freeConn {
 		cp.close((*wrapConn).conn)
 	}
+}
+
+// Status 返回目前連接池中可用連線狀況
+func (cp *channelPool) Status() (ConnectionStatus, error) {
+	cp.Lock()
+	defer cp.Unlock()
+	var connectionStatus ConnectionStatus
+	connectionStatus.maxIdle = cp.maxIdle
+	connectionStatus.maxOpen = cp.maxOpen
+	connectionStatus.numOpen = cp.numOpen
+	return connectionStatus, nil
 }
 
 func (cp *channelPool) getWithBlock(block bool) (interface{}, error) {

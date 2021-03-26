@@ -44,5 +44,7 @@ type Pool interface {
 
 	Close(interface{}) error
 
+	Status() (interface{}, error)
+
 	Release()
 }
